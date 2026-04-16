@@ -1,19 +1,21 @@
-from services.model_service import ModelService
-
-model_service = ModelService("model/model.h5")
-
-# dummy labels
-class_names = ["Healthy", "Diseased"]
-
 from flask import Flask, request, render_template_string
 import os
 
+from services.model_service import ModelService
+from services.explain_service import ExplainService
+
+# ---------------- INIT ----------------
+model_service = ModelService("model/model.h5")
+explain_service = ExplainService(model_service.model)
+
+class_names = ["Healthy", "Diseased"]
+
 app = Flask(__name__, static_folder=".", static_url_path="")
 
-# folder to store uploads
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# ---------------- HTML ----------------
 HTML = """
 <!DOCTYPE html>
 <html>
@@ -39,15 +41,22 @@ HTML = """
     <h3>Confidence: {{ confidence }}%</h3>
 {% endif %}
 
+{% if heatmap %}
+    <h3>🔥 Heatmap:</h3>
+    <img src="{{ heatmap }}" width="300">
+{% endif %}
+
 </body>
 </html>
 """
 
+# ---------------- ROUTE ----------------
 @app.route("/", methods=["GET", "POST"])
 def home():
     image_path = None
     disease = None
     confidence = None
+    heatmap_path = None
 
     if request.method == "POST":
         file = request.files["image"]
@@ -57,15 +66,24 @@ def home():
 
         image_path = "/" + filepath
 
-        # 🔥 PREDICTION
-        idx, confidence, _ = model_service.predict(filepath)
+        # Prediction
+        idx, confidence, img_array = model_service.predict(filepath)
         disease = class_names[idx]
+
+        # Grad-CAM
+        heatmap = explain_service.generate_heatmap(img_array)
+
+        if heatmap is not None:
+            heatmap_path = explain_service.overlay_heatmap(filepath, heatmap)
+
+    confidence_display = round(confidence * 100, 2) if confidence is not None else None
 
     return render_template_string(
         HTML,
         image=image_path,
         disease=disease,
-        confidence=round(confidence * 100, 2) if confidence else None
+        confidence=confidence_display,
+        heatmap=heatmap_path
     )
 
 

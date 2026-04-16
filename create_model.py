@@ -8,7 +8,7 @@ model = models.Sequential([
     layers.Input(shape=(224, 224, 3)),
     layers.Flatten(),
     layers.Dense(64, activation='relu'),
-    layers.Dense(2, activation='softmax')  # 2 classes
+    layers.Dense(2, activation='softmax')
 ])
 
 model.compile(
@@ -19,4 +19,4 @@ model.compile(
 
 model.save("model/model.h5")
 
-print("✅ Dummy model created at model/model.h5")
+print("✅ Dummy model created")
