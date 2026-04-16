@@ -3,10 +3,12 @@ import os
 
 from services.model_service import ModelService
 from services.explain_service import ExplainService
+from services.disease_service import DiseaseService
 
 # ---------------- INIT ----------------
 model_service = ModelService("model/model.h5")
 explain_service = ExplainService(model_service.model)
+disease_service = DiseaseService()
 
 class_names = ["Healthy", "Diseased"]
 
@@ -28,6 +30,13 @@ HTML = """
 
 <form method="POST" enctype="multipart/form-data">
     <input type="file" name="image" required><br><br>
+
+    <label>Select Region:</label>
+    <select name="region">
+        <option value="Rajasthan">Rajasthan</option>
+        <option value="Maharashtra">Maharashtra</option>
+    </select><br><br>
+
     <button type="submit">Upload</button>
 </form>
 
@@ -39,6 +48,15 @@ HTML = """
 {% if disease %}
     <h2>Prediction: {{ disease }}</h2>
     <h3>Confidence: {{ confidence }}%</h3>
+{% endif %}
+
+{% if treatment %}
+    <h3>🧾 Treatment:</h3>
+    <ul>
+    {% for t in treatment %}
+        <li>{{ t }}</li>
+    {% endfor %}
+    </ul>
 {% endif %}
 
 {% if heatmap %}
@@ -57,9 +75,11 @@ def home():
     disease = None
     confidence = None
     heatmap_path = None
+    treatment = None
 
     if request.method == "POST":
         file = request.files["image"]
+        region = request.form.get("region", "Rajasthan")
 
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(filepath)
@@ -69,6 +89,12 @@ def home():
         # Prediction
         idx, confidence, img_array = model_service.predict(filepath)
         disease = class_names[idx]
+
+        # 🌍 Geo filter
+        disease = disease_service.apply_geo_filter(disease, region)
+
+        # 🧾 Treatment
+        treatment = disease_service.get_treatment(disease)
 
         # Grad-CAM
         heatmap = explain_service.generate_heatmap(img_array)
@@ -83,7 +109,8 @@ def home():
         image=image_path,
         disease=disease,
         confidence=confidence_display,
-        heatmap=heatmap_path
+        heatmap=heatmap_path,
+        treatment=treatment
     )
 
 
