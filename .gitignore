@@ -2,4 +2,4 @@ venv/
 __pycache__/
 *.pyc
 uploads/
-model.h5
+model/
