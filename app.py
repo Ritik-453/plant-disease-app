@@ -1,3 +1,10 @@
+from services.model_service import ModelService
+
+model_service = ModelService("model/model.h5")
+
+# dummy labels
+class_names = ["Healthy", "Diseased"]
+
 from flask import Flask, request, render_template_string
 import os
 
@@ -27,6 +34,11 @@ HTML = """
     <img src="{{ image }}" width="300">
 {% endif %}
 
+{% if disease %}
+    <h2>Prediction: {{ disease }}</h2>
+    <h3>Confidence: {{ confidence }}%</h3>
+{% endif %}
+
 </body>
 </html>
 """
@@ -34,6 +46,8 @@ HTML = """
 @app.route("/", methods=["GET", "POST"])
 def home():
     image_path = None
+    disease = None
+    confidence = None
 
     if request.method == "POST":
         file = request.files["image"]
@@ -43,7 +57,16 @@ def home():
 
         image_path = "/" + filepath
 
-    return render_template_string(HTML, image=image_path)
+        # 🔥 PREDICTION
+        idx, confidence, _ = model_service.predict(filepath)
+        disease = class_names[idx]
+
+    return render_template_string(
+        HTML,
+        image=image_path,
+        disease=disease,
+        confidence=round(confidence * 100, 2) if confidence else None
+    )
 
 
 if __name__ == "__main__":
